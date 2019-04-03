@@ -1,0 +1,489 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <style>
+    .slidecontainer {
+        width: 600px;
+    }
+    
+    .slider {
+        -webkit-appearance: none;
+        width: 100%;
+        height: 25px;
+        background: #d3d3d3;
+        outline: none;
+        opacity: 0.7;
+        -webkit-transition: .2s;
+        transition: opacity .2s;
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+    
+    .slider:hover {
+        opacity: 1;
+    }
+    
+    .slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 25px;
+        height: 25px;
+        background: #4CAF50;
+        cursor: pointer;
+    }
+    
+    .slider::-moz-range-thumb {
+        width: 25px;
+        height: 25px;
+        background: #4CAF50;
+        cursor: pointer;
+    }
+    table {
+        width: 100%;
+        border: 1px solid #444444;
+        border-collapse: collapse;
+        font-size: small;
+    }
+    th, td {
+        border: 1px solid #444444;
+    }
+    td {
+        text-align: right;
+    }
+    .log {
+        width: 300px;
+        margin-top: 10px;
+        margin-bottom: 10px;
+        font-size: small;
+    }
+    </style>
+    <script src="https://code.jquery.com/jquery-1.10.2.js"></script>
+    <script type="text/javascript">
+    
+    var code = "";
+    var startDate = new Date("2019-03-04 09:00:00");
+    var endDate = new Date("2019-03-04 16:00:00");
+    var sliderDate = new Date(startDate.getTime());
+
+    var min  = startDate.getTime();
+    var max = endDate.getTime();
+
+    var sliderTimer = null;
+    var sliderInterval = 100;
+    var sliderSpeed = 1;
+
+    var hogaTimer = null;
+    var hogaInterval = 10;
+
+    var hoga = [];
+    var hogaLastDate = null;
+    var isRunning = false;
+
+    function setSliderTime(date) {
+        $("#time").text(getTimeText(date, ":"));
+    }
+
+    function getTimeText(date, f) {
+        var hour = pad(date.getHours(), 2);
+        var minutes = pad(date.getMinutes(), 2);
+        var seconds = pad(date.getSeconds(), 2);
+        var milliseconds = pad(date.getMilliseconds(), 3);
+        if(f)
+            return hour + f + minutes + f + seconds + "." + milliseconds;
+        else
+            return hour + minutes + seconds + milliseconds;
+    }
+    function getDateText(date, f) {
+        var year = pad(date.getFullYear(), 4);
+        var month = pad(date.getMonth() + 1, 2);
+        var day = pad(date.getDate(), 2);
+        if(f)
+            return year + f + month + f + day;
+        else
+            return year + month + day;
+    }
+
+    function stopPlay() {
+        isRunning = false;
+
+        clearInterval(sliderTimer);
+        sliderTimer = null;
+
+        stopHoga();
+    }
+
+    function stopHoga() {
+        clearInterval(hogaTimer);
+        hogaTimer = null;
+    }
+
+    function pad(n, width, z) {
+        z = z || '0';
+        n = n + '';
+        return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
+    }
+
+    function getHogaData(date)
+    {
+        var dateTemp = new Date(date.getTime());
+        var dateParam = getDateText(dateTemp);
+        var startParam = getTimeText(dateTemp);
+        dateTemp.setMinutes(dateTemp.getMinutes() + 5)
+        var endParam = getTimeText(dateTemp); //5분 사이 500건
+        var url ="http://localhost:6369/api/data/hoga/" + code + "/" + dateParam + "/" + startParam + "/" + endParam; 
+
+        var startTime = new Date();
+
+        $.ajax({
+            type: "GET",
+			url: url,
+			contentType: false,
+			processData: false,
+			error: function (e) { 
+                console.error(e); 
+            },
+			success: function (data) {
+                var endTime = new Date();
+                $("#duration").text((endTime - startTime) + " ms");
+                $("#count").text(data.length);
+                $("#remain").text(data.length);
+                if(data && data.length > 0) {
+                    
+                    if(hoga.length > 0)
+                        hoga = hoga.concat(data);
+                    else {
+                        hoga = data;
+                        hogaBind(hoga[0]);
+                    }
+                        
+                    hogaLastDate = new Date(hoga[hoga.length - 1].date);
+
+                    hogaBinder();
+                }
+			}
+        });
+    }
+
+    function hogaBinder() {
+        if (hogaTimer !== null) return;
+        hogaTimer = setInterval(function () {
+            if(new Date(hoga[0].date) <= sliderDate) {
+                h = hoga.shift();
+                
+                hogaBind(h);
+
+                // log
+                $("#remain").text(hoga.length);
+
+                var date = new Date(h.date);
+                var dateText = getDateText(date, "-");
+                var timeText = getTimeText(date, ":");
+                $("#latest").text(dateText + " " + timeText);
+                if(hoga.length > 0) {
+                    date = new Date(hoga[1].date);
+                    dateText = getDateText(date, "-");
+                    timeText = getTimeText(date, ":");
+                    $("#next").text(dateText + " " + timeText);
+
+                    date = new Date(hoga[hoga.length - 1].date);
+                    dateText = getDateText(date, "-");
+                    timeText = getTimeText(date, ":");
+                    $("#last").text(dateText + " " + timeText);
+                    
+                    // 미리 조회?
+                    if(hoga.length == 10) {
+                        getHogaData(hogaLastDate);
+                    }
+                } 
+                // else {
+                //     if(isRunning == true) {
+                //         getHogaData(hogaLastDate);
+                //     }
+                // }
+            }
+        }, hogaInterval);
+    }
+
+    function hogaBind(h) {
+        $("#offerho1").text(h.offerho1);
+        $("#offerho2").text(h.offerho2);
+        $("#offerho3").text(h.offerho3);
+        $("#offerho4").text(h.offerho4);
+        $("#offerho5").text(h.offerho5);
+        $("#offerho6").text(h.offerho6);
+        $("#offerho7").text(h.offerho7);
+        $("#offerho8").text(h.offerho8);
+        $("#offerho9").text(h.offerho9);
+        $("#offerho10").text(h.offerho10);
+
+        $("#offerrem1").text(h.offerrem1);
+        $("#offerrem2").text(h.offerrem2);
+        $("#offerrem3").text(h.offerrem3);
+        $("#offerrem4").text(h.offerrem4);
+        $("#offerrem5").text(h.offerrem5);
+        $("#offerrem6").text(h.offerrem6);
+        $("#offerrem7").text(h.offerrem7);
+        $("#offerrem8").text(h.offerrem8);
+        $("#offerrem9").text(h.offerrem9);
+        $("#offerrem10").text(h.offerrem10);
+
+        $("#bidho1").text(h.bidho1);
+        $("#bidho2").text(h.bidho2);
+        $("#bidho3").text(h.bidho3);
+        $("#bidho4").text(h.bidho4);
+        $("#bidho5").text(h.bidho5);
+        $("#bidho6").text(h.bidho6);
+        $("#bidho7").text(h.bidho7);
+        $("#bidho8").text(h.bidho8);
+        $("#bidho9").text(h.bidho9);
+        $("#bidho10").text(h.bidho10);
+
+        $("#bidrem1").text(h.bidrem1);
+        $("#bidrem2").text(h.bidrem2);
+        $("#bidrem3").text(h.bidrem3);
+        $("#bidrem4").text(h.bidrem4);
+        $("#bidrem5").text(h.bidrem5);
+        $("#bidrem6").text(h.bidrem6);
+        $("#bidrem7").text(h.bidrem7);
+        $("#bidrem8").text(h.bidrem8);
+        $("#bidrem9").text(h.bidrem9);
+        $("#bidrem10").text(h.bidrem10);
+    }
+
+    $(document).ready(function(){
+        $(".slider").attr("min", min);
+        $(".slider").attr("max", max);
+        $(".slider").val(min);
+
+        $("#start").click(function() {
+            if (sliderTimer !== null) return;
+            if(code == "") {
+                alert("코드 입력후 Ready 버튼 클릭!!");
+                return;
+            }
+
+            // 초기 데이터 조회 하고 시작
+            getHogaData(sliderDate);
+
+            isRunning = true;
+            sliderTimer = setInterval(function () {
+
+                if(sliderDate.getTime() >= max) 
+                {
+                    sliderDate.setTime(max);
+                    setSliderTime(sliderDate);
+                    stopPlay();
+                    return;
+                }
+
+                var speed = 100 * sliderSpeed;
+
+                var remain = sliderDate.getMilliseconds() % speed;
+                if(remain > 0)
+                    sliderDate.setMilliseconds(sliderDate.getMilliseconds() + speed - remain);
+                else
+                    sliderDate.setMilliseconds(sliderDate.getMilliseconds() + speed);
+                
+                $(".slider").val(sliderDate.getTime());
+                    
+                setSliderTime(sliderDate);
+
+            }, sliderInterval);
+        });
+
+        $("#stop").click(function() {
+            stopPlay();
+        });
+
+        $("#reset").click(function() {
+            stopPlay();
+            sliderDate.setTime(startDate.getTime());
+            setSliderTime(sliderDate);
+            $(".slider").val(sliderDate.getTime());
+
+            $("table tr").each(function(i, e) {
+                if(i == 0) return;
+                $(e).find("td").each(function(ii, ee) {
+                    // 값 있는 td만 0으로 초기화
+                    if($(ee).text() != "")
+                        $(ee).text("0");
+                });
+            });
+
+            sliderSpeed = 1;
+            $("#speed").val("x1");
+
+            hoga = [];
+        });        
+
+        $(".slider").on('input', function() {
+            sliderDate.setTime($(".slider").val());
+            setSliderTime(sliderDate);
+            if(isRunning == true) {
+                hoga = [];
+                getHogaData(sliderDate);
+            }
+            
+        });
+
+         $("#speed").click(function() {
+             if(sliderSpeed >= 8) return;
+
+            sliderSpeed *= 2;
+            $("#speed").val("x" + sliderSpeed);
+        });
+
+        $("#ready").click(function() {
+            code = $("#code").val();
+            if(code.length < 6) {
+                alert("6자리 입력!!");
+                return;
+            }
+            getHogaData(sliderDate);
+        });
+    });
+
+    </script>
+</head>
+
+<body>
+
+    <div style="width:300px">
+        <table>
+            <colgroup>
+                <col style="width:100px">
+                <col style="width:100px">
+                <col style="width:100px">
+            </colgroup>
+            <thead>
+                <td style="text-align:center">매도잔량</td>
+                <td style="text-align:center">호가</td>
+                <td style="text-align:center">매수잔량</td>
+            </thead>
+            <tr>
+                    <td id="offerrem10">0</td>
+                    <td id="offerho10">0</td>
+                    <td></td>
+            </tr>
+            <tr>
+                    <td id="offerrem9">0</td>
+                    <td id="offerho9">0</td>
+                    <td></td>
+            </tr>
+            <tr>
+                    <td id="offerrem8">0</td>
+                    <td id="offerho8">0</td>
+                    <td></td>
+            </tr>
+            <tr>
+                    <td id="offerrem7">0</td>
+                    <td id="offerho7">0</td>
+                    <td></td>
+            </tr>
+            <tr>
+                    <td id="offerrem6">0</td>
+                    <td id="offerho6">0</td>
+                    <td></td>
+            </tr>
+            <tr>
+                    <td id="offerrem5">0</td>
+                    <td id="offerho5">0</td>
+                    <td></td>    
+            </tr>  
+            <tr>
+                    
+                    <td id="offerrem4">0</td>
+                    <td id="offerho4">0</td>
+                    <td></td>
+            </tr>
+            <tr>
+                    <td id="offerrem3">0</td>
+                    <td id="offerho3">0</td>
+                    <td></td>
+            </tr>
+            <tr>
+                    <td id="offerrem2">0</td>
+                    <td id="offerho2">0</td>
+                    <td></td>
+            </tr>
+            <tr>
+                <td id="offerrem1">0</td>
+                <td id="offerho1">0</td>
+                <td></td>
+            </tr>
+            <tr>
+                    <td></td>
+                    <td id="bidho1">0</td>
+                    <td id="bidrem1">0</td>
+            </tr>
+            <tr>
+                    <td></td>
+                    <td id="bidho2">0</td>
+                    <td id="bidrem2">0</td>
+            </tr>
+            <tr>
+                    <td></td>
+                    <td id="bidho3">0</td>
+                    <td id="bidrem3">0</td>
+            </tr>
+            <tr>
+                    <td></td>
+                    <td id="bidho4">0</td>
+                    <td id="bidrem4">0</td>
+            </tr>
+            <tr>
+                    <td></td>
+                    <td id="bidho5">0</td>
+                    <td id="bidrem5">0</td>
+            </tr>
+            <tr>
+                    <td></td>
+                    <td id="bidho6">0</td>
+                    <td id="bidrem6">0</td>
+            </tr>
+            <tr>
+                    <td></td>
+                    <td id="bidho7">0</td>
+                    <td id="bidrem7">0</td>
+            </tr>
+            <tr>
+                    <td></td>
+                    <td id="bidho8">0</td>
+                    <td id="bidrem8">0</td>
+            </tr>
+            <tr>
+                    <td></td>
+                    <td id="bidho9">0</td>
+                    <td id="bidrem9">0</td>
+            </tr>
+            <tr>
+                    <td></td>
+                    <td id="bidho10">0</td>
+                    <td id="bidrem10">0</td>
+            </tr>
+        </table>
+    </div>
+    <div class="slidecontainer">
+        <input id="sd" type="range" min="0" max="1000" value="0" class="slider">
+        <input type="text" id="code" style="width:80px">
+        <input type="button" id="ready" value="Ready">
+        <input type="button" id="start" value="Start">
+        <input type="button" id="stop" value="Stop">
+        <input type="button" id="speed" value="x1">
+        <input type="button" id="reset" value="Reset">
+    </div>
+    <span id="time">09:00:00.000</span>
+
+    <div class="log">
+            <span>Hoga Response Duration : <span id="duration"></span></span><br />
+            <span>Total Hoga Count : <span id="count"></span></span><br />
+            <span>Remain Hoga Count : <span id="remain"></span></span><br />
+            <span>Latest Hoga Date : <span id="latest"></span></span><br />
+            <span>Next Hoga Date : <span id="next"></span></span><br />
+            <span>Last Hoga Date : <span id="last"></span></span>
+    </div>
+
+</body>
+
+</html>

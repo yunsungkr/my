@@ -1,0 +1,1080 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <style>
+        * { font-family:Gulim; font-size:12px; box-sizing:border-box; padding:0; margin:0; }
+        table, th, td { border:0; border-collapse: collapse; }
+
+        .warp { width:670px; height:467px; background:#e8e8e8; margin-left: 10px; margin-top: 10px}
+        .warp .title { padding:0 4px; height:25px; background:#345894; color:#fff; line-height:25px; }
+        .warp .sub_title { padding:0 4px;  height:25px; background:#c1c1c1; color:#222; line-height:25px;}
+        .tab_title { padding:0 4px; width:70px; height:21px; text-align:center; background:#f1f1f1; color:#222; line-height:21px; border:1px solid #999; border-bottom:0; }
+
+        .bold { font-weight:bold!important;}
+        .up { color:red; }
+        .down { color:blue; }
+        .total { color:#324e5a;}
+        .br_0 { border-right:0!important; }
+        .bt_1c {border-top:1px solid #ccc;}
+        .bb_19 {border-bottom:1px solid #999;}
+        .price { border:1px solid red!important;}
+
+        .per_bar { position:absolute; right:0; display:inline-block; height:15px; vertical-align:middle; background-color:#e4eefa; }
+        .per_bar_red { position:absolute; left:0; display:inline-block; height:15px; vertical-align:middle; background-color:#ffe7dc; }
+        .per_num { position:relative; }
+        .fl_l { float:left; }
+        .mt8 { margin-top:8px;}
+
+        .txtalgn_left { text-align:left!important; }
+        .txtalgn_right { text-align:right!important; }
+        .txtalgn_center { text-align:center!important; }
+        .active { border:1px solid red!important; }
+
+        .warp .table_warp { margin:2px; }
+        .warp .table_warp table th { height:20px; line-height:20px;  font-weight:normal;}
+        .warp .table_warp table.table1 { width:360px; border:1px solid #999; border-bottom:0; }
+        .warp .table_warp table.table2 { width:300px; border:1px solid #999;  }
+        .warp .table_warp table.table1:last-child { border-bottom:1px solid #999; }
+        .warp .table_warp table.table2.scrolly { display:block; width:300px; }
+        .warp .table_warp table.table2.scrolly tbody { display:block; width:298px;overflow-x:hidden; overflow-y:scroll; height:215px; }
+        /* .warp .table_warp table.table2.scrolly thead th { width:60px; }
+        .warp .table_warp table.table2.scrolly tbody td { width:60px; } */
+        .warp .table_warp table { background-color:#fff;}
+
+        .warp .table_warp table tr { height:17px; } 
+        .warp .table_warp table tr td { text-align: right; position:relative; padding:0 4px; border-right:1px solid #ccc; }
+        .warp .table_warp table tr td.empty { border-right:0px; }
+        .warp .table_warp table tr td:last-child { border-right:1px solid #999; }
+
+        .control { margin-left: 10px; }
+        .slidecontainer { width: 670px; }
+        .slider { -webkit-appearance: none; width: 100%; height: 25px; background: #d3d3d3; outline: none; opacity: 0.7; -webkit-transition: .2s; transition: opacity .2s; margin: 10px }
+        .slider:hover { opacity: 1; }
+        .slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 25px; height: 25px; background: #4CAF50; cursor: pointer; }
+        .slider::-moz-range-thumb { width: 25px; height: 25px; background: #4CAF50; cursor: pointer; }
+        .log { width: 300px; margin-top: 10px; margin-bottom: 10px; margin-left: 10px; font-size: small; }
+    </style>
+    <script src="https://code.jquery.com/jquery-1.10.2.js"></script>
+    <script src="/Scripts/api.js"></script>
+    <script type="text/javascript">
+    Number.prototype.toNumber = function() {
+ 
+        var reg = /(^[+-]?\d+)(\d{3})/;
+        var n = (this + '');
+ 
+        while (reg.test(n)) n = n.replace(reg, '$1' + ',' + '$2');
+        if(n==="0")
+            n = "";
+        return n;
+    };
+
+    String.prototype.toNumber = function() {
+        if(this=="") return 0;
+ 
+        var num = parseInt(this);
+       return num.toNumber();
+    };
+
+    const up = "▲";
+    const down = "▼";
+
+    var code = "";
+
+    var startDate = new Date();
+    var endDate = new Date();
+    var sliderDate = new Date();
+
+    var min  = 0;
+    var max = 0;
+
+    var sliderTimer = null;
+    var sliderInterval = 100;
+    var sliderSpeed = 1;
+
+    var dataBindTimer = null;
+    var dataBindInterval = 10;
+
+    var prevDay = {
+        close: 0,
+        volume: 0,
+        name: ""
+    };
+
+    var prevHoga = null;
+    var hoga =  {
+        api: "hoga",
+        data: [],
+        pendings: false,
+        getSize: 100,
+        getTerm: 5
+    };
+
+    var price = {
+        api: "price",
+        data: [],
+        pendings: false,
+        getSize: 100,
+        getTerm: 5
+    };
+
+    var trader = {
+        api: "trader",
+        data: [],
+        pendings: false,
+        getSize: 10,
+        getTerm: 60
+    }
+
+    var isReady = false;
+    var isRunning = false;
+
+    function setSliderTime(date) {
+        $("#time").text(getTimeText(date, ":"));
+    }
+
+    function getTimeText(date, f, exceptms) {
+        var hour = pad(date.getHours(), 2);
+        var minutes = pad(date.getMinutes(), 2);
+        var seconds = pad(date.getSeconds(), 2);
+        var milliseconds = pad(date.getMilliseconds(), 3);
+        if(typeof exceptms === "undefined"){
+            if(f)
+                return hour + f + minutes + f + seconds + "." + milliseconds;
+            else
+                return hour + minutes + seconds + milliseconds;
+        } else {
+            if(f)
+                return hour + f + minutes + f + seconds;
+            else
+                return hour + minutes + seconds;
+        }
+        
+    }
+    function getDateText(date, f) {
+        var year = pad(date.getFullYear(), 4);
+        var month = pad(date.getMonth() + 1, 2);
+        var day = pad(date.getDate(), 2);
+        if(f)
+            return year + f + month + f + day;
+        else
+            return year + month + day;
+    }
+
+    function stopPlay(clearData) {
+        isRunning = false;
+        clearInterval(sliderTimer);
+        sliderTimer = null;
+
+        stopstartDataBinder();
+
+        if(clearData) {
+            dataClear();
+            chartClear();
+        }
+    }
+
+    function dataClear() {
+        hoga.data = [];
+        price.data = [];
+        trader.data = [];
+    }
+
+    function chartClear() {
+        $("#pricelist > tbody").empty();
+        $("#trader > tbody > td").text();
+        $("#hogalist")
+
+        $("#hogalist").find("td").each(function(index, item) {
+            var id = $(item).attr("id");
+            if(id && (id.startsWith("offer") || id.startsWith("bid"))) {
+                $(item).text("");
+            }
+        });
+    }
+
+    function stopstartDataBinder() {
+        clearInterval(dataBindTimer);
+        dataBindTimer = null;
+    }
+
+    function pad(n, width, z) {
+        z = z || '0';
+        n = n + '';
+        return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
+    }
+
+    function debounce (cb, wait) {
+        var timeoutID;
+        return function () {
+            clearTimeout(timeoutID);
+            timeoutID = setTimeout(cb, wait);
+        };
+    }
+
+    function getData()
+    {
+        getApiData(sliderDate, hoga, hogaBind);
+        getApiData(sliderDate, price, undefined, "_p");
+        getApiData(sliderDate, trader, undefined, "_t");
+    }
+
+    function apiDataBindLog(startTime, endTime, result, obj, logRef)
+    {
+        if(typeof logRef === "undefined")
+            logRef = "";
+
+        $("#duration" + logRef).text((endTime - startTime) + " ms");
+        $("#count" + logRef).text(result.length);
+        $("#remain" + logRef).text(result.length);
+
+        if(obj.data.length > 0) {
+            // obj data에 concat 후
+            var last = new Date(obj.data[obj.data.length - 1].date);
+            dateText = getDateText(last, "-");
+            timeText = getTimeText(last, ":");
+            $("#last" + logRef).text(dateText + " " + timeText);
+        }
+    }
+
+    function arrayDataBind(obj, bindAction, getAction, logRef) {
+        if(obj.data.length > 0 && new Date(obj.data[0].date) <= sliderDate) {
+            var elem = obj.data.shift();
+            
+            bindAction(elem);
+
+            // 미리 조회
+            if(obj.data.length == obj.getSize) {
+                var date = new Date(obj.data[obj.data.length - 1].date);
+                getAction(date, obj, bindAction, logRef);
+            }
+
+            bindingLog(obj, elem, logRef);
+        }
+    }
+
+    function bindingLog(obj, elem, logRef) {
+        if(typeof logRef === "undefined")
+            logRef = "";
+
+        $("#remain" + logRef).text(obj.data.length);
+
+        var date = new Date(elem.date);
+        var dateText = getDateText(date, "-");
+        var timeText = getTimeText(date, ":");
+        $("#latest" + logRef).text(dateText + " " + timeText);
+
+        if(obj.data.length > 0) {
+            date = new Date(obj.data[1].date);
+            dateText = getDateText(date, "-");
+            timeText = getTimeText(date, ":");
+            $("#next" + logRef).text(dateText + " " + timeText);
+        }
+    }
+
+    function startDataBinder() {
+        if (dataBindTimer !== null) return;
+        dataBindTimer = setInterval(function () {
+            arrayDataBind(hoga, hogaBind, getApiData);
+            arrayDataBind(price, priceBind, getApiData, "_p");
+            arrayDataBind(trader, traderBind, getApiData, "_t");
+        }, dataBindInterval);
+    }
+
+    function priceBind(p){
+        /*
+        <tr>
+            <td>09:42:13</td>
+            <td class="up">3,065</td>
+            <td class="up">▲ 10</td>
+            <td class="down">194</td>
+            <td>66.15</td>
+        </tr>
+        */
+
+        var time = getTimeText(new Date(p.date), ":", false);
+        var price = p.price.toNumber();
+        var volume = p.volume.toNumber();
+
+        // 체결가를 호가에 표시
+        var bidClass = "down";
+
+        // 현재가 박스 초기화
+        $("#hogalist").find("td[ref]").each(function(index, item) {
+            if($(item).hasClass("price")) {
+                $(item).prev().removeClass("empty");
+                $(item).removeClass("price");
+                return false;
+            }
+        });
+
+        $("#hogalist").find("td[ref]").each(function(index, item) {
+            // 현재가 박스 재설정
+            if(price == $(item).text().toString()) {
+                $(item).addClass("price");
+                $(item).prev().addClass("empty");
+                
+                if($(item).attr("id").startsWith("offer"))
+                    bidClass = "up";
+
+                return false; // break
+            }
+        });
+
+        // 호가창 상단 전일대비
+        var updownClass = updownSetValue("price", p.price);
+        $("#price").text(p.price.toNumber());
+
+        // 위에서 구한 class 그대로 설정
+        updownSetValue("priceind", 0, updownClass);
+        updownSetValue("diff", 0, updownClass);
+        updownSetValue("diffrate", 0, updownClass);
+
+        var updownInd = "";
+        if (updownClass === "up")
+            updownInd = up;
+        else if (updownClass === "down")
+            updownInd = down;
+
+        var diff = priceDiff(p.price);
+
+        $("#priceind").text(updownInd);
+        $("#diff").text(diff);
+        $("#diffrate").text(priceDiffText(p.price, prevDay.close, 2));
+
+        // 체결 내역 추가
+        var row = $("<tr><td  style='width:60px;' class='txtalgn_center'>" + time + "</td>" 
+            + "<td style='width:60px;' class='" + updownClass + "'>" + price + "</td>" 
+            + "<td style='width:10px;' class='" + updownClass + " empty'>" + updownInd + "</td>" 
+            + "<td style='width:50px;' class='" + updownClass + "'>" + diff + "</td>"
+            + "<td style='width:60px;' class='" + bidClass + "'>" + volume + "</td><td style='width:60px;' ></td></tr>");
+        $("#pricelist > tbody").prepend(row);
+
+        //var len = $("#pricelist").find("tr").length;
+        //if(len > 100)
+        //    $("#pricelist").find("tr:last").remove();
+    }
+
+    function traderBind(t) {
+        // 증감, 매도합, 매도사, 매수사, 매수합, 증감
+
+        $("#tradmdcha1").text(t.tradmdcha1.toNumber());
+        $("#tradmdvol1").text(t.tradmdvol1.toNumber());
+        $("#offertrad1").text(t.offertrad1);
+        $("#bidtrad1").text(t.bidtrad1);
+        $("#tradmscha1").text(t.tradmscha1.toNumber());
+        $("#tradmsvol1").text(t.tradmsvol1.toNumber());
+
+        $("#tradmdcha2").text(t.tradmdcha2.toNumber());
+        $("#tradmdvol2").text(t.tradmdvol2.toNumber());
+        $("#offertrad2").text(t.offertrad2);
+        $("#bidtrad2").text(t.bidtrad2);
+        $("#tradmscha2").text(t.tradmscha2.toNumber());
+        $("#tradmsvol2").text(t.tradmsvol2.toNumber());
+
+        $("#tradmdcha3").text(t.tradmdcha3.toNumber());
+        $("#tradmdvol3").text(t.tradmdvol3.toNumber());
+        $("#offertrad3").text(t.offertrad3);
+        $("#bidtrad3").text(t.bidtrad3);
+        $("#tradmscha3").text(t.tradmscha3.toNumber());
+        $("#tradmsvol3").text(t.tradmsvol3.toNumber());
+
+        $("#tradmdcha4").text(t.tradmdcha4.toNumber());
+        $("#tradmdvol4").text(t.tradmdvol4.toNumber());
+        $("#offertrad4").text(t.offertrad4);
+        $("#bidtrad4").text(t.bidtrad4);
+        $("#tradmscha4").text(t.tradmscha4.toNumber());
+        $("#tradmsvol4").text(t.tradmsvol4.toNumber());
+
+        $("#tradmdcha5").text(t.tradmdcha5.toNumber());
+        $("#tradmdvol5").text(t.tradmdvol5.toNumber());
+        $("#offertrad5").text(t.offertrad5);
+        $("#bidtrad5").text(t.bidtrad5);
+        $("#tradmscha5").text(t.tradmscha5.toNumber());
+        $("#tradmsvol5").text(t.tradmsvol5.toNumber());
+
+        $("#ftradmdcha").text(t.ftradmdcha.toNumber());
+        $("#ftradmdvol").text(t.ftradmdvol.toNumber());
+        $("#ftradmsvol").text(t.ftradmsvol.toNumber());
+        $("#ftradmscha").text(t.ftradmscha.toNumber());
+    }
+
+    function hogaDiff(prevHo, ho, prevRem, hoRem, id) {
+        id = "#" + id;
+        if(prevHo == ho) {
+            var diff = hoRem - prevRem;
+            var diffClass = "down";
+            if(diff > 0)
+                diffClass = "up";
+            else if(diff === 0)
+                diffClass = "";
+
+            diff = Math.abs(hoRem - prevRem);
+
+            if(diff !== 0) {
+                $(id).text(diff.toNumber());
+                $(id).removeClass();
+                if(diffClass !== "")
+                    $(id).addClass(diffClass);
+            }
+            else
+                $(id).text("");
+        }
+        else 
+            $(id).text("");
+    }
+
+    function updownSetValue(id, value, updown)
+    {
+        id = "#" + id;
+
+        $(id).removeClass("up").removeClass("down");
+        var updownClass = "down";
+        if(typeof updown === "undefined") {
+            if(value > prevDay.close)
+                updownClass = "up";
+            else if(value === prevDay.close)
+                updownClass = "";
+        }
+        else {
+            updownClass = updown;
+        }
+
+        if(updownClass !== "")
+            $(id).addClass(updownClass);
+
+        $(id).text(value.toNumber());
+
+        return updownClass;
+    }
+
+    function hogaSet(id, value) 
+    {
+        if (value <= 0) return;
+
+        // 호가
+        var hogaClass = updownSetValue(id, value);
+
+        // 호가 등락률
+        id = "#" + id.replace("ho", "rate");
+        $(id).removeClass("up").removeClass("down");
+        var rate = priceDiffText(value, prevDay.close, 2);
+
+        if(hogaClass !== "")
+            $(id).addClass(hogaClass);
+
+        $(id).text(rate);
+    }
+
+    function priceDiffRate(left, right, fix)
+    {
+        return (((left - right) / right) * 100).toFixed(fix);
+    }
+
+    function priceDiff(price)
+    {
+        return Math.abs(prevDay.close - price).toNumber();
+    }
+
+    function priceDiffText(left, right, fix)
+    {
+        var rate = priceDiffRate(left, right, fix);
+        if(rate > 0)
+            rate = "+" + rate + "%";
+        else if (rate < 0)
+            rate = rate + "%";
+        else
+            rate = "0%";
+
+            return rate;
+    }
+
+    function hogaBind(h) {
+
+        if(prevHoga) {
+            hogaDiff(prevHoga.offerho10, h.offerho10, prevHoga.offerrem10, h.offerrem10, "offerdiff10");
+            hogaDiff(prevHoga.offerho9, h.offerho9, prevHoga.offerrem9, h.offerrem9, "offerdiff9");
+            hogaDiff(prevHoga.offerho8, h.offerho8, prevHoga.offerrem8, h.offerrem8, "offerdiff8");
+            hogaDiff(prevHoga.offerho7, h.offerho7, prevHoga.offerrem7, h.offerrem7, "offerdiff7");
+            hogaDiff(prevHoga.offerho6, h.offerho6, prevHoga.offerrem6, h.offerrem6, "offerdiff6");
+            hogaDiff(prevHoga.offerho5, h.offerho5, prevHoga.offerrem5, h.offerrem5, "offerdiff5");
+            hogaDiff(prevHoga.offerho4, h.offerho4, prevHoga.offerrem4, h.offerrem4, "offerdiff4");
+            hogaDiff(prevHoga.offerho3, h.offerho3, prevHoga.offerrem3, h.offerrem3, "offerdiff3");
+            hogaDiff(prevHoga.offerho2, h.offerho2, prevHoga.offerrem2, h.offerrem2, "offerdiff2");
+            hogaDiff(prevHoga.offerho1, h.offerho1, prevHoga.offerrem1, h.offerrem1, "offerdiff1");
+
+            hogaDiff(prevHoga.bidho1, h.bidho1, prevHoga.bidrem1, h.bidrem1, "biddiff1");
+            hogaDiff(prevHoga.bidho2, h.bidho2, prevHoga.bidrem2, h.bidrem2, "biddiff2");
+            hogaDiff(prevHoga.bidho3, h.bidho3, prevHoga.bidrem3, h.bidrem3, "biddiff3");
+            hogaDiff(prevHoga.bidho4, h.bidho4, prevHoga.bidrem4, h.bidrem4, "biddiff4");
+            hogaDiff(prevHoga.bidho5, h.bidho5, prevHoga.bidrem5, h.bidrem5, "biddiff5");
+            hogaDiff(prevHoga.bidho6, h.bidho6, prevHoga.bidrem6, h.bidrem6, "biddiff6");
+            hogaDiff(prevHoga.bidho7, h.bidho7, prevHoga.bidrem7, h.bidrem7, "biddiff7");
+            hogaDiff(prevHoga.bidho8, h.bidho8, prevHoga.bidrem8, h.bidrem8, "biddiff8");
+            hogaDiff(prevHoga.bidho9, h.bidho9, prevHoga.bidrem9, h.bidrem9, "biddiff9");
+            hogaDiff(prevHoga.bidho10, h.bidho10, prevHoga.bidrem10, h.bidrem10, "biddiff10");
+        }
+
+        hogaSet("offerho1", h.offerho1);
+        hogaSet("offerho2", h.offerho2);
+        hogaSet("offerho3", h.offerho3);
+        hogaSet("offerho4", h.offerho4);
+        hogaSet("offerho5", h.offerho5);
+        hogaSet("offerho6", h.offerho6);
+        hogaSet("offerho7", h.offerho7);
+        hogaSet("offerho8", h.offerho8);
+        hogaSet("offerho9", h.offerho9);
+        hogaSet("offerho10", h.offerho10);
+
+        $("#offerrem1").text(h.offerrem1.toNumber());
+        $("#offerrem2").text(h.offerrem2.toNumber());
+        $("#offerrem3").text(h.offerrem3.toNumber());
+        $("#offerrem4").text(h.offerrem4.toNumber());
+        $("#offerrem5").text(h.offerrem5.toNumber());
+        $("#offerrem6").text(h.offerrem6.toNumber());
+        $("#offerrem7").text(h.offerrem7.toNumber());
+        $("#offerrem8").text(h.offerrem8.toNumber());
+        $("#offerrem9").text(h.offerrem9.toNumber());
+        $("#offerrem10").text(h.offerrem10.toNumber());
+
+        hogaSet("bidho1", h.bidho1);
+        hogaSet("bidho2", h.bidho2);
+        hogaSet("bidho3", h.bidho3);
+        hogaSet("bidho4", h.bidho4);
+        hogaSet("bidho5", h.bidho5);
+        hogaSet("bidho6", h.bidho6);
+        hogaSet("bidho7", h.bidho7);
+        hogaSet("bidho8", h.bidho8);
+        hogaSet("bidho9", h.bidho9);
+        hogaSet("bidho10", h.bidho10);
+
+        $("#bidrem1").text(h.bidrem1.toNumber());
+        $("#bidrem2").text(h.bidrem2.toNumber());
+        $("#bidrem3").text(h.bidrem3.toNumber());
+        $("#bidrem4").text(h.bidrem4.toNumber());
+        $("#bidrem5").text(h.bidrem5.toNumber());
+        $("#bidrem6").text(h.bidrem6.toNumber());
+        $("#bidrem7").text(h.bidrem7.toNumber());
+        $("#bidrem8").text(h.bidrem8.toNumber());
+        $("#bidrem9").text(h.bidrem9.toNumber());
+        $("#bidrem10").text(h.bidrem10.toNumber());
+
+        // 최우선 매도 매수가
+        updownSetValue("offerho1sum", h.offerho1);
+        updownSetValue("bidho1sum", h.bidho1);
+
+        prevHoga = h;
+    }
+
+    $(document).ready(function(){
+
+        var today = new Date();
+        today.setDate(today.getDate() - 1);
+        //today.setDate(today.getDate()-1);
+        $("#date").val(getDateText(today, "-"));
+        $("#code").val("005930");
+
+        $("#start").click(function() {
+            if (sliderTimer !== null) return;
+            if(isReady == false) {
+                alert("Ready부터!!");
+                return;
+            }
+
+            if(isRunning == true){
+                alert("실행중입니다.!!");
+                return;
+            }
+
+            if(hoga.data.length <= 0) {
+                alert("데이터가 없습니다.!!");
+                return;
+            }
+
+            startDataBinder();
+
+            isRunning = true;
+            sliderTimer = setInterval(function () {
+                
+                // 끝났을때
+                if(sliderDate.getTime() >= max) 
+                {
+                    sliderDate.setTime(max);
+                    setSliderTime(sliderDate);
+                    stopPlay();
+                    return;
+                }
+
+                // slider 조정되면 100ms 단위로 변경
+                var speed = 100 * sliderSpeed;
+
+                var remain = sliderDate.getMilliseconds() % speed;
+                if(remain > 0)
+                    sliderDate.setMilliseconds(sliderDate.getMilliseconds() + speed - remain);
+                else
+                    sliderDate.setMilliseconds(sliderDate.getMilliseconds() + speed);
+                
+                $(".slider").val(sliderDate.getTime());
+                    
+                setSliderTime(sliderDate);
+
+            }, sliderInterval);
+        });
+
+        $("#stop").click(function() {
+            stopPlay();
+        });
+
+        $("#reset").click(function() {
+            stopPlay(true);
+            // 시간 초기화
+            sliderDate.setTime(startDate.getTime());
+            setSliderTime(sliderDate);
+            $(".slider").val(sliderDate.getTime());
+
+            chartClear();
+
+            sliderSpeed = 1;
+            $("#accel").val("x1");
+        });        
+
+        $(".slider").on('input', debounce(function() {
+            if(!isReady) return;
+
+            stopPlay(true);
+            sliderDate.setTime($(".slider").val());
+            setSliderTime(sliderDate);
+
+            getData();
+        }, 300));
+
+        $(".slider").on('mousedown', function() {
+            stopPlay();
+        });
+
+        $("#accel").click(function() {
+             if(sliderSpeed >= 8) return;
+
+            sliderSpeed *= 2;
+            $("#accel").val("x" + sliderSpeed);
+        });
+
+        $("#decel").click(function() {
+             if(sliderSpeed >= 32) return;
+
+            sliderSpeed = 1;
+            $("#accel").val("x1");
+        });
+
+        $("#settime").click(function() {
+            stopPlay(true);
+            var date = $("#date").val();
+            var time = $("#timeset").val();
+            var settime = new Date(date + " " + time);
+            sliderDate = new Date(settime.getTime());
+
+            setSliderTime(sliderDate);
+            getData();
+        });
+
+        // 종목검색되면 자동으로 실행해주면 된다.
+        $("#ready").click(function() {
+            if(isRunning) {
+                alert("Stop부터!!");
+                return;
+            }
+
+            code = $("#code").val();
+            var date = $("#date").val();
+            if(code.length < 6) {
+                alert("종목 코드 6자리 입력!!");
+                return;
+            }
+
+            if(date.length < 10) {
+                alert("날짜 입력!!(yyyy-MM-dd)");
+                return;
+            }
+
+            startDate = new Date(date + " 09:00:00");
+            endDate = new Date(date + " 16:00:00");
+            sliderDate = new Date(startDate.getTime());
+
+            min  = startDate.getTime();
+            max = endDate.getTime();
+            isReady = true;
+
+            $(".slider").attr("min", min);
+            $(".slider").attr("max", max);
+            $(".slider").val(min);
+
+            dataClear();
+            chartClear();
+
+            setSliderTime(sliderDate);
+            getPrevDay(getDateText(startDate, "-"), code);
+            //getData();
+        });
+    });
+    </script>
+</head>
+
+<body>
+
+    <div class="warp">
+            <h2 class="title">현재가</h2>
+            <h4 id="stockName" class="sub_title">종목명</h4>
+            <div class="table_warp fl_l">
+                <table class="table1">
+                    <colgroup>
+                        <col style="width:80px;" />
+                        <col style="width:40px;" />
+                        <col style="width:40px;" />
+                        <col style="width:70px;" />
+                        <col style="width:75px;" />
+                        <col />
+                    </colgroup>
+                    <tr>
+                        <th id="price" class="txtalgn_right bold">0</th>
+                        <th id="priceind" class="txtalgn_center bold"></th>
+                        <th id="diff" class="bold">0</th>
+                        <th id="diffrate" class="bold">0%</th>
+                        <th id="volume" colspan="2">0</th>
+                        <th id="diffvolume" colspan="2" class="total">0%</th>
+                    </tr>
+                </table>
+                <table class="table1">
+                    <colgroup>
+                        <col style="width:65px;" />
+                        <col style="width:75px;" />
+                        <col style="width:75px;" />
+                        <col style="width:80px;" />
+                        <col />
+                    </colgroup>
+                    <tr>
+                        <th class="txtalgn_center" style="width:62px;">증감</th>
+                        <th id="offerho1sum">0</th>
+                        <th id="bidho1sum">0</th>
+                        <th colspan="3" class="txtalgn_center">75백만</th>
+                        <th>0.12%</th>
+                    </tr>
+                </table>
+                <table id="hogalist" class="table1">
+                    <colgroup>
+                        <col style="width:50px;" />
+                        <col style="width:60px;" />
+                        <col style="width:70px;" />
+                        <col style="width:60px;" />
+                        <col style="width:60px;" />
+                        <col style="width:50px;" />
+                        <col />
+                    </colgroup>
+                    <tr>
+                        <!-- D : 퍼센트 막대는 SPAN태그에 WIDTH % 로 들어가야 합니다. -->
+                        <!-- <span class="per_bar" style="width:30%;"></span><span class="per_num"></span> -->
+                        <td id="offerdiff10"></td>
+                        <td id="offerrem10"></td>
+                        <td id="offerho10" ref="hoga" class=""></td>
+                        <td id="offerrate10"></td>
+                        <td class="up br_0"></td>
+                        <td class="txtalgn_left">시</td>
+                    </tr>
+                    <tr>
+                        <td id="offerdiff9"></td>
+                        <td id="offerrem9"></td>
+                        <td id="offerho9" ref="hoga" class=""></td>
+                        <td id="offerrate9"></td>
+                        <td class="up br_0"></td>
+                        <td class="txtalgn_left">고</td>
+                    </tr>
+                    <tr>
+                        <td id="offerdiff8"></td>
+                        <td id="offerrem8"></td>
+                        <td id="offerho8" ref="hoga" class=""></td>
+                        <td id="offerrate8"></td>
+                        <td class="up br_0"></td>
+                        <td class="txtalgn_left">고</td>
+                    </tr>
+                    <tr>
+                        <td id="offerdiff7"></td>
+                        <td id="offerrem7"></td>
+                        <td id="offerho7" ref="hoga" class=""></td>
+                        <td id="offerrate7"></td>
+                        <td class="up br_0"></td>
+                        <td class="txtalgn_left">기준</td>
+                    </tr>
+                    <tr>
+                        <td id="offerdiff6"></td>
+                        <td id="offerrem6"></td>
+                        <td id="offerho6" ref="hoga" class=""></td>
+                        <td id="offerrate6"></td>
+                        <td class="up br_0"></td>
+                        <td class="txtalgn_left">시</td>
+                    </tr>
+                    <tr>
+                        <td id="offerdiff5"></td>
+                        <td id="offerrem5"></td>
+                        <td id="offerho5" ref="hoga" class=""></td>
+                        <td id="offerrate5"></td>
+                        <td class="br_0"></td>
+                        <td class="txtalgn_left">수량</td>
+                    </tr>
+                    <tr>
+                        <td id="offerdiff14"></td>
+                        <td id="offerrem4"></td>
+                        <td id="offerho4" ref="hoga" class=""></td>
+                        <td id="offerrate4"></td>
+                        <td class="down br_0"></td>
+                        <td class="txtalgn_left">하</td>
+                    </tr>
+                    <tr>
+                        <td id="offerdiff3"></td>
+                        <td id="offerrem3"></td>
+                        <td id="offerho3" ref="hoga" class=""></td>
+                        <td id="offerrate3"></td>
+                        <td class="br_0"></td>
+                        <td class="txtalgn_left">비용</td>
+                    </tr>
+                    <tr>
+                        <td id="offerdiff2"></td>
+                        <td id="offerrem2"></td>
+                        <td id="offerho2" ref="hoga" class=""></td>
+                        <td id="offerrate2"></td>
+                        <td class="br_0"></td>
+                        <td class="txtalgn_left">예상</td>
+                    </tr>
+                    <tr>
+                        <td id="offerdiff1"></td>
+                        <td id="offerrem1"></td>
+                        <td id="offerho1" ref="hoga" class=""></td>
+                        <td id="offerrate1"></td>
+                        <td class="up txtalgn_left br_0"></td>
+                        <td class="up"></td>
+                    </tr>
+                    <!-- S : 하단 -->
+                    <!-- <span class="per_bar_red " style="width:80%;"></span><span class="per_num txtalgn_right"></span> -->
+                    <tr class="bt_1c ">
+                        <td class="empty"></td>
+                        <td class="empty"></td>
+                        <td id="bidho1" ref="hoga" class="price"></td>
+                        <td id="bidrate1"></td>
+                        <td id="bidrem1" class=""></td>
+                        <td id="biddiff1"></td>
+                    </tr>
+                    <tr>
+                        <td class="empty"></td>
+                        <td></td>
+                        <td id="bidho2" ref="hoga" class=""></td>
+                        <td id="bidrate2"></td>
+                        <td id="bidrem2" class=""></td>
+                        <td id="biddiff2"></td>
+                    </tr>
+                    <tr>
+                        <td class="empty"></td>
+                        <td></td>
+                        <td id="bidho3" ref="hoga" class=""></td>
+                        <td id="bidrate3"></td>
+                        <td id="bidrem3" class=""></td>
+                        <td id="biddiff3"></td>
+                    </tr>
+                    <tr>
+                        <td class="empty"></td>
+                        <td></td>
+                        <td id="bidho4" ref="hoga" class=""></td>
+                        <td id="bidrate4"></td>
+                        <td id="bidrem4" class=""></td>
+                        <td id="biddiff4"></td>
+                    </tr>
+                    <tr>
+                        <td class="empty"></td>
+                        <td></td>
+                        <td id="bidho5" ref="hoga" class=""></td>
+                        <td id="bidrate5"></td>
+                        <td id="bidrem5" class=""></td>
+                        <td id="biddiff5"></td>
+                    </tr>
+                    <tr>
+                        <td class="empty"></td>
+                        <td></td>
+                        <td id="bidho6" ref="hoga" class=""></td>
+                        <td id="bidrate6"></td>
+                        <td id="bidrem6" class=""></td>
+                        <td id="biddiff6"></td>
+                    </tr>
+                    <tr>
+                        <td class="empty"></td>
+                        <td></td>
+                        <td id="bidho7" ref="hoga" class=""></td>
+                        <td id="bidrate7"></td>
+                        <td id="bidrem7" class=""></td>
+                        <td id="biddiff7"></td>
+                    </tr>
+                    <tr>
+                        <td class="empty"></td>
+                        <td></td>
+                        <td id="bidho8" ref="hoga" class=""></td>
+                        <td id="bidrate8"></td>
+                        <td id="bidrem8" class=""></td>
+                        <td id="biddiff8"></td>
+                    </tr>
+                    <tr>
+                        <td class="empty"></td>
+                        <td></td>
+                        <td id="bidho9" ref="hoga" class=""></td>
+                        <td id="bidrate9"></td>
+                        <td id="bidrem9" class=""></td>
+                        <td id="biddiff9"></td>
+                    </tr>
+                    <tr>
+                        <td class="empty"></td>
+                        <td></td>
+                        <td id="bidho10" ref="hoga" class=""></td>
+                        <td id="bidrate10"></td>
+                        <td id="bidrem10" class=""></td>
+                        <td id="biddiff10"></td>
+                    </tr>
+                    <tr class="bt_1c">
+                        <td></td>
+                        <td></td>
+                        <td>09:42:18 시간외</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                </table>
+            </div>
+    
+            <!--  S : 오른쪽 표 -->
+            <div class="table_warp fl_l">
+                <h5 class="tab_title">거래원</h5>
+                <table id="trader" class="table2">
+                    <thead>
+                        <tr class="bb_19">
+                            <th>증감</th>
+                            <th colspan="2">매도상위</th>
+                            <th colspan="2">매수상위</th>
+                            <th>증감</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td id="tradmdcha1"></td>
+                            <td id="tradmdvol1"></td>
+                            <td id="offertrad1"></td>
+                            <td id="bidtrad1"></td>
+                            <td id="tradmsvol1"></td>
+                            <td id="tradmscha1"></td>
+                        </tr>
+                        <tr>
+                            <td id="tradmdcha2"></td>
+                            <td id="tradmdvol2"></td>
+                            <td id="offertrad2"></td>
+                            <td id="bidtrad2"></td>
+                            <td id="tradmsvol2"></td>
+                            <td id="tradmscha2"></td>
+                        </tr>
+                        <tr>
+                            <td id="tradmdcha3"></td>
+                            <td id="tradmdvol3"></td>
+                            <td id="offertrad3"></td>
+                            <td id="bidtrad3"></td>
+                            <td id="tradmsvol3"></td>
+                            <td id="tradmscha3"></td>
+                        </tr>
+                        <tr>
+                                <td id="tradmdcha4"></td>
+                                <td id="tradmdvol4"></td>
+                                <td id="offertrad4"></td>
+                                <td id="bidtrad4"></td>
+                                <td id="tradmsvol4"></td>
+                                <td id="tradmscha4"></td>
+                        </tr>
+                        <tr>
+                                <td id="tradmdcha5"></td>
+                                <td id="tradmdvol5"></td>
+                                <td id="offertrad5"></td>
+                                <td id="bidtrad5"></td>
+                                <td id="tradmsvol5"></td>
+                                <td id="tradmscha5"></td>
+                        </tr>
+                        <tr class="bt_1c">
+                            <td id="ftradmdcha"></td>
+                            <td id="ftradmdvol"></td>
+                            <td colspan="2">외국계합</td>
+                            <td id="ftradmsvol"></td>
+                            <td id="ftradmscha"></td>
+                        </tr>
+                    </tbody>
+                </table>
+    
+                <h5 class="tab_title mt8">체결</h5>
+                <table id="pricelist" class="table2 scrolly">
+                    <colgroup>
+                        <col style="width:60px;"/>
+                        <col style="width:60px;"/>
+                        <col style="width:10px;"/>
+                        <col style="width:50px;"/>
+                        <col style="width:60px;"/>
+                        <col style="width:60px;"/>
+                    </colgroup>
+                    <thead>
+                        <tr class="bb_19">
+                            <th>시간</th>
+                            <th>체결가</th>
+                            <th colspan="2">전일대비</th>
+                            <th>체결랑</th>
+                            <th>체결강도</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+    
+            </div>
+    </div>
+    <div class="slidecontainer">
+        <input id="sd" type="range" min="0" max="1000" value="0" class="slider">
+    </div>
+    <div class="control">
+        date : <input type="text" id="date" style="width:80px">
+        code : <input type="text" id="code" style="width:80px">
+        <input type="button" id="ready" value="Ready">
+        <input type="button" id="start" value="Start">
+        <input type="button" id="stop" value="Stop">
+        <input type="button" id="accel" value="x1">
+        <input type="button" id="decel" value="x1">
+        <input type="button" id="reset" value="Reset">
+        <span id="time">09:00:00.000</span>&nbsp;&nbsp;
+        <input type="text" id="timeset" style="width:100px" placeholder="HH:mm:ss.fff">
+        <input type="button" id="settime" value="set time">
+    </div>
+    <div class="log">
+            Hoga Log<br />
+            <span>Duration : <span id="duration"></span></span><br />
+            <span>Total : <span id="count"></span></span><br />
+            <span>Remain : <span id="remain"></span></span><br />
+            <span>Latest : <span id="latest"></span></span><br />
+            <span>Next : <span id="next"></span></span><br />
+            <span>Last : <span id="last"></span></span>
+    </div>
+    <div class="log">
+            Price Log<br />
+            <span>Duration : <span id="duration_p"></span></span><br />
+            <span>Total : <span id="count_p"></span></span><br />
+            <span>Remain : <span id="remain_p"></span></span><br />
+            <span>Latest : <span id="latest_p"></span></span><br />
+            <span>Next : <span id="next_p"></span></span><br />
+            <span>Last : <span id="last_p"></span></span>
+    </div>
+    <div class="log">
+            Trader Log<br />
+            <span>Duration : <span id="duration_t"></span></span><br />
+            <span>Total : <span id="count_t"></span></span><br />
+            <span>Remain : <span id="remain_t"></span></span><br />
+            <span>Latest : <span id="latest_t"></span></span><br />
+            <span>Next : <span id="next_t"></span></span><br />
+            <span>Last : <span id="last_t"></span></span>
+    </div>
+</body>
+
+</html>
